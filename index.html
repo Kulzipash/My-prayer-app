@@ -3,110 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prayer Times</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/adhans/1.2.1/Adhan.min.js"></script>
     <style>
         body {
-            background: radial-gradient(circle at top, #0d1b2a, #000814);
+            background: #050a12;
             color: white;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, sans-serif;
             display: flex;
             justify-content: center;
-            padding: 20px;
             margin: 0;
+            padding: 20px;
         }
-        .app-container {
-            width: 100%;
-            max-width: 375px;
-        }
-        h1 { text-align: center; font-size: 24px; margin-bottom: 30px; }
-        
-        /* Карточка таймера */
+        .container { width: 100%; max-width: 400px; text-align: center; }
         .timer-card {
             background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(15px);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 25px;
+            border-radius: 24px;
             padding: 20px;
-            margin-bottom: 20px;
+            margin: 20px 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .time-big { font-size: 32px; font-weight: bold; }
-        
-        /* Кнопки методов */
-        .methods {
-            display: flex;
-            overflow-x: auto;
-            gap: 10px;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-        }
-        .method-btn {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #ccc;
-            padding: 8px 15px;
-            border-radius: 20px;
-            white-space: nowrap;
-        }
-        .method-btn.active {
-            border-color: #4cc9f0;
-            color: white;
-            background: rgba(76, 201, 240, 0.1);
-        }
-
-        /* Список молитв */
+        .countdown { font-size: 36px; font-weight: bold; }
+        .prayer-list { display: flex; flex-direction: column; gap: 12px; }
         .prayer-item {
             background: rgba(255, 255, 255, 0.03);
-            border-radius: 20px;
-            padding: 15px 20px;
-            margin-bottom: 10px;
+            border-radius: 18px;
+            padding: 18px 25px;
             display: flex;
             justify-content: space-between;
-            align-items: center;
             border: 1px solid transparent;
         }
-        .prayer-item.active {
-            border: 1px solid #4cc9f0;
-            background: rgba(76, 201, 240, 0.05);
-        }
-        .prayer-name { font-size: 18px; }
-        .prayer-time { font-size: 18px; font-weight: 500; }
+        .active { border-color: #4cc9f0; background: rgba(76, 201, 240, 0.05); }
+        .city-name { font-size: 24px; margin-bottom: 5px; }
     </style>
 </head>
 <body>
-    <div class="app-container">
-        <h1>Байконур</h1>
+    <div class="container">
+        <div id="city" class="city-name">Определение...</div>
         
         <div class="timer-card">
-            <div>
+            <div style="text-align: left;">
                 <div style="font-size: 12px; opacity: 0.6;">До следующей молитвы</div>
-                <div class="time-big">00:16:51</div>
+                <div id="timer" class="countdown">00:00:00</div>
             </div>
-            <div style="font-size: 14px;">до Maghrib</div>
+            <div id="next-prayer-name" style="font-size: 14px;">...</div>
         </div>
 
-        <div class="methods">
-            <div class="method-btn">ISNA</div>
-            <div class="method-btn">MWL</div>
-            <div class="method-btn active">Umm al-Qura</div>
-            <div class="method-btn">Egypt</div>
-        </div>
-
-        <div class="prayer-list">
-            <div class="prayer-item">
-                <div class="prayer-name">Fajr</div>
-                <div class="prayer-time">06:33</div>
+        <div class="prayer-list" id="list">
             </div>
-            <div class="prayer-item">
-                <div class="prayer-name">Dhuhr</div>
-                <div class="prayer-time">12:57</div>
-            </div>
-            <div class="prayer-item active">
-                <div class="prayer-name">Maghrib</div>
-                <div class="prayer-time">17:34</div>
-            </div>
-        </div>
     </div>
+
+    <script>
+        function updatePrayers() {
+            navigator.geolocation.getCurrentPosition(position => {
+                const coords = new adhan.Coordinates(position.coords.latitude, position.coords.longitude);
+                const params = adhan.CalculationMethod.UmmAlQura();
+                const date = new Date();
+                const prayerTimes = new adhan.PrayerTimes(coords, date, params);
+
+                // Список для отображения
+                const names = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"];
+                const times = [prayerTimes.fajr, prayerTimes.sunrise, prayerTimes.dhuhr, prayerTimes.asr, prayerTimes.maghrib, prayerTimes.isha];
+                
+                let listHtml = "";
+                const next = prayerTimes.nextPrayer();
+                
+                names.forEach((name, i) => {
+                    if (name === "Sunrise") return; // Пропускаем восход в списке
+                    const isNext = (next === i || (next === 'none' && i === 0));
+                    const timeStr = times[i].toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
+                    listHtml += `<div class="prayer-item ${isNext ? 'active' : ''}">
+                        <span>${name}</span>
+                        <span>${timeStr}</span>
+                    </div>`;
+                    if(isNext) document.getElementById('next-prayer-name').innerText = 'до ' + name;
+                });
+                
+                document.getElementById('list').innerHTML = listHtml;
+                document.getElementById('city').innerText = "Ваша локация";
+
+                // Обратный отсчет
+                setInterval(() => {
+                    const now = new Date();
+                    const nextTime = prayerTimes.timeForPrayer(next) || prayerTimes.fajr; // Если все прошли, берем завтрашний Фаджр
+                    let diff = nextTime - now;
+                    if (diff < 0) diff += 86400000; // Добавляем 24 часа если время вышло
+
+                    const h = Math.floor(diff/3600000).toString().padStart(2, '0');
+                    const m = Math.floor((diff%3600000)/60000).toString().padStart(2, '0');
+                    const s = Math.floor((diff%60000)/1000).toString().padStart(2, '0');
+                    document.getElementById('timer').innerText = `${h}:${m}:${s}`;
+                }, 1000);
+            });
+        }
+        updatePrayers();
+    </script>
 </body>
 </html>
